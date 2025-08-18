@@ -3,27 +3,40 @@ from toolbox_core import ToolboxSyncClient
 from typing import Optional
 from google.adk.tools import FunctionTool
 from google.adk.sessions import InMemorySessionService, Session
+from google.adk.runners import Runner
+from google.adk.tools import ToolContext
 
 toolbox = ToolboxSyncClient("http://127.0.0.1:5001")
 
 tools = toolbox.load_toolset('my_second_toolset')
 
-def get_today(bio: str) -> dict:
+def get_today(bio: str, tool_context: ToolContext) -> dict:
     """Retrieves the system current date
     
+    Args:
+        bio: User bio information
+        tool_context: ADK tool context containing session information
+        
     Returns:
-        dict: system current date
+        dict: system current date and user_id
     """
     from datetime import datetime
 
     today = datetime.now().date()
-    return {"today": today.isoformat()}
+    user_id = tool_context._invocation_context.session.user_id if tool_context._invocation_context.session else None
+    
+    return {
+        "today": today.isoformat(),
+        "user_id": user_id
+    }
 
 get_today_tool = FunctionTool(get_today)
 
 session_service = InMemorySessionService()
 
+
 root_agent = LlmAgent(
+    
     model='gemini-2.5-flash',
     name='root_agent',
     description='A helpful assistant for managing the booking of tennis court',
@@ -41,4 +54,6 @@ root_agent = LlmAgent(
     tools=[*tools, get_today_tool],
     
 )
+
+runner1 = Runner(app_name='my-first-agent', session_service=session_service, agent=root_agent)
 
