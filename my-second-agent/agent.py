@@ -6,6 +6,8 @@ from google.adk.sessions import InMemorySessionService, Session
 from google.adk.runners import Runner
 from google.adk.tools.base_tool import BaseTool
 from google.adk.tools import ToolContext
+from google.adk.agents.callback_context import CallbackContext
+from google.genai import types # For types.Content
 
 def get_today(tool_context: ToolContext) -> dict:
     """Retrieves the system current date
@@ -34,12 +36,22 @@ def simple_before_tool_modifier(tool: BaseTool, args: Dict[str, Any], tool_conte
     print("[Callback] Proceeding with original or previously modified args.")
     return None
 
+def modify_output_after_agent(callback_context: CallbackContext) -> Optional[types.Content]:
+    return None
+
+def check_if_agent_should_run(callback_context: CallbackContext) -> Optional[types.Content]:
+    print("[Callback] Before agent callback")
+    print("user_id=" + callback_context._invocation_context.session.user_id)
+    
+    return None
+
 root_agent = Agent(
     model='gemini-2.5-flash',
     name='root_agent',
     description='A helpful assistant for user questions.',
     instruction='Answer user questions to the best of your knowledge',
     tools=[get_today_tool],
-    before_tool_callback=simple_before_tool_modifier
+    before_tool_callback=simple_before_tool_modifier,
+    before_agent_callback=check_if_agent_should_run
 )
 
