@@ -8,17 +8,21 @@ from google.adk.runners import Runner
 from google.adk.tools import ToolContext
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types # For types.Content
+import os
+from datetime import datetime
+import pytz
 
 #toolbox = ToolboxSyncClient("http://127.0.0.1:5001")
 #https://toolbox-1022559513291.asia-southeast1.run.app
 
-toolbox = ToolboxSyncClient("https://toolbox-1022559513291.asia-southeast1.run.app")
+#toolbox = ToolboxSyncClient("https://toolbox-1022559513291.asia-southeast1.run.app")
+toolbox = ToolboxSyncClient(os.getenv("TOOLBOX_URL"))
 
 tools = toolbox.load_toolset('my_second_toolset')
 
 USER_ID = 10
 
-print("everytime?")
+#print("TOOLBOX_URL=" + os.getenv("TOOLBOX_URL"))
 
 def get_today(tool_context: ToolContext) -> dict:
     """Retrieves the system current date
@@ -32,7 +36,9 @@ def get_today(tool_context: ToolContext) -> dict:
     """
     from datetime import datetime
 
-    today = datetime.now().date()
+    tz = pytz.timezone('Asia/Bangkok')
+    today = datetime.now(tz).date()
+    print(today)
     user_id = tool_context._invocation_context.session.user_id if tool_context._invocation_context.session else None
     
     return {
@@ -49,24 +55,25 @@ def check_if_agent_should_run(callback_context: CallbackContext) -> Optional[typ
     print("user_id=" + callback_context._invocation_context.session.user_id)
     #USER_ID = callback_context._invocation_context.session.user_id
     global USER_ID
-    USER_ID = 1
+    USER_ID = callback_context._invocation_context.session.user_id
     return None
 
 def simple_before_tool_modifier(tool: BaseTool, args: Dict[str, Any], tool_context: ToolContext) -> Optional[Dict]:
-    global USER_ID
+    #global USER_ID
     print("[Callback] Proceeding with original or previously modified args.")
-    print("USER_ID=" + str(USER_ID))
-
+    
     if (tool_context.state.get('xxx') is None):
         tool_context.state['xxx'] = 0
     else:
         tool_context.state['xxx'] = tool_context.state['xxx']+1
 
-    print('state=' + str(tool_context.state['xxx']))        
+    print('state=' + str(tool_context.state['xxx']))
+    USER_ID = tool_context._invocation_context.session.user_id
+    print("USER_ID=" + str(USER_ID))
 
     if ( (tool.name == 'list-booked-by-user') or (tool.name == 'book-single-slot') or (tool.name == 'list-booked-from-specific-courts-by-date')):
         print(f"original args: {args}")
-        args["USER_ID"] = USER_ID
+        args["USER_ID"] = int(USER_ID)
     
     return None
 
@@ -80,12 +87,15 @@ root_agent = LlmAgent(
     ##General rules
     1. When Greeting customer, greet politely with {username}
     2. You muse use tools to check the latest court availability data, do not assume from the previous answer.
+    3. You can return in Markdown format if it's more appropiated.
 
     ##Booking rules
-    1. The working hour is 7am to 10pm.
+    1. The working hour is 6am to 10pm.
     2. You can't book the duplicated court at the same booked hour. Check the court availability by using tool: {list-booked-from-specific-courts-by-date} first before booking the court
     3. Before booking the court using tool: {book-single-slot}, repeat the booking order and get user to confirm first.
     4. If the customer wants to book weekly or monthly, please support them. You can call tool: {book-single-slot} many times to book multiple slot if needed. But please confirm court, date and time with the customer first.
+    5. Price: Indoor = 500THB per hour, Outdoor = 400THB per hour. No extra charge (Light at night time is free)
+    6. There is no refund policy.
     
 
     ##Tools information:
